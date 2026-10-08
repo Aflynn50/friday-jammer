@@ -29,6 +29,11 @@ const SCOPES = [
   'playlist-modify-private',
   'playlist-read-private',
   'playlist-read-collaborative',
+  // Saving the playlist to the bot's library (formerly "follow") and checking it.
+  'user-library-read',
+  'user-library-modify',
+  'user-follow-read',
+  'user-follow-modify',
 ].join(' ');
 
 function openBrowser(url: string): void {
