@@ -90,15 +90,19 @@ export async function getPlaylist(cfg: SpotifyConfig, playlistId: string): Promi
   };
 }
 
-/** All track URIs already in the playlist (paginated, 100 per page). */
+/**
+ * All track URIs already in the playlist (paginated, 50 per page, the API max).
+ * Spotify only lists items for playlists the bot owns or collaborates on, and
+ * answers 403 otherwise.
+ */
 export async function getPlaylistTrackUris(cfg: SpotifyConfig, playlistId: string): Promise<Set<string>> {
   const uris = new Set<string>();
-  let url: string | null = `/playlists/${playlistId}/tracks?fields=items(track(uri)),next&limit=100`;
+  let url: string | null = `/playlists/${playlistId}/items?fields=items(item(uri)),next&limit=50`;
 
   while (url) {
     const page: any = await requestJson<any>(cfg, 'GET', url);
     for (const item of page.items || []) {
-      const uri = item?.track?.uri;
+      const uri = item?.item?.uri;
       if (uri) uris.add(uri);
     }
     // `next` is an absolute URL; strip the base so request() can re-add it.
@@ -107,19 +111,17 @@ export async function getPlaylistTrackUris(cfg: SpotifyConfig, playlistId: strin
   return uris;
 }
 
-/** Is the bot account currently following (a member/collaborator of) the playlist? */
-export async function isFollowingPlaylist(cfg: SpotifyConfig, playlistId: string, userId: string): Promise<boolean> {
-  const res = await requestJson<boolean[]>(
-    cfg,
-    'GET',
-    `/playlists/${playlistId}/followers/contains?ids=${encodeURIComponent(userId)}`
-  );
+/** Is the playlist already in the bot account's library? */
+export async function isFollowingPlaylist(cfg: SpotifyConfig, playlistId: string): Promise<boolean> {
+  const uri = encodeURIComponent(`spotify:playlist:${playlistId}`);
+  const res = await requestJson<boolean[]>(cfg, 'GET', `/me/library/contains?uris=${uri}`);
   return Array.isArray(res) ? !!res[0] : false;
 }
 
-/** Follow (save to library) the playlist. Required to edit a collaborative playlist. */
+/** Save the playlist to the bot account's library (what "follow" used to do). */
 export async function followPlaylist(cfg: SpotifyConfig, playlistId: string): Promise<void> {
-  await requestJson<void>(cfg, 'PUT', `/playlists/${playlistId}/followers`, { public: false });
+  const uri = encodeURIComponent(`spotify:playlist:${playlistId}`);
+  await requestJson<void>(cfg, 'PUT', `/me/library?uris=${uri}`);
 }
 
 /**
@@ -129,7 +131,7 @@ export async function followPlaylist(cfg: SpotifyConfig, playlistId: string): Pr
 export async function addTracks(cfg: SpotifyConfig, playlistId: string, uris: string[]): Promise<number> {
   for (let i = 0; i < uris.length; i += 100) {
     const batch = uris.slice(i, i + 100);
-    await requestJson<void>(cfg, 'POST', `/playlists/${playlistId}/tracks`, { uris: batch });
+    await requestJson<void>(cfg, 'POST', `/playlists/${playlistId}/items`, { uris: batch });
   }
   return uris.length;
 }

@@ -72,7 +72,16 @@ export async function runJam(cfg: Config, req: JamRequest): Promise<string> {
 
   // 4. Read existing tracks and add only the new ones. The add is the real
   //    permission check: a 403 means the bot account can't write to this playlist.
-  const existing = await getPlaylistTrackUris(spotify, meta.id);
+  let existing: Set<string>;
+  try {
+    existing = await getPlaylistTrackUris(spotify, meta.id);
+  } catch (err) {
+    // Spotify only lists the contents of playlists the bot owns or collaborates on.
+    if (err instanceof SpotifyApiError && err.status === 403) {
+      return notWritableMessage(meta);
+    }
+    throw err;
+  }
   const toAdd = candidateUris.filter(uri => !existing.has(uri));
   const alreadyPresent = candidateUris.length - toAdd.length;
 
@@ -94,7 +103,7 @@ export async function runJam(cfg: Config, req: JamRequest): Promise<string> {
   let justFollowed = false;
   if (!botOwnsPlaylist) {
     try {
-      const alreadyFollowing = await isFollowingPlaylist(spotify, meta.id, me.id);
+      const alreadyFollowing = await isFollowingPlaylist(spotify, meta.id);
       if (!alreadyFollowing) {
         await followPlaylist(spotify, meta.id);
         justFollowed = true;
