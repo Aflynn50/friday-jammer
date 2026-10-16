@@ -155,16 +155,6 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
-  # Public function URLs need lambda:InvokeFunction as well as
-  # lambda:InvokeFunctionUrl (which SAM adds). Scoped to URL calls only.
-  IngressUrlInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref IngressFn
-      Action: lambda:InvokeFunction
-      Principal: '*'
-      InvokedViaFunctionUrl: true
-
   WorkerLogs:
     Type: AWS::Logs::LogGroup
     Properties:
